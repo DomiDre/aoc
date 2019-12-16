@@ -7,6 +7,7 @@ pub struct IntcodeComputer {
     relative_base: i64,
     pub debug_mode: bool,
     pub show_stdinout: bool,
+    pub requesting_input: bool,
     pub terminated: bool,
 }
 
@@ -24,8 +25,9 @@ impl IntcodeComputer {
             memory_output: 0,
             pmodes: [0, 0, 0],
             relative_base: 0,
-            show_stdinout: true,
             debug_mode: false,
+            show_stdinout: true,
+            requesting_input: false,
             terminated: false,
         }
     }
@@ -89,9 +91,11 @@ impl IntcodeComputer {
                         if self.show_stdinout {
                             println!("\nProgram halted, requesting for input.");
                         }
+                        self.requesting_input = true;
                         break;
                     } else {
                         self.input();
+                        self.requesting_input = false;
                     }
                 }
                 4 => {
