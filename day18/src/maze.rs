@@ -5,9 +5,11 @@ pub const MAP_DIM_X: usize = 81;
 pub const MAP_DIM_Y: usize = 81;
 pub type Map = [[char; MAP_DIM_Y]; MAP_DIM_X];
 
+/// Keep track of state in the maze
+/// For final output also keep track of the order in that the keys are collected
 #[derive(Clone, Debug)]
 struct State {
-    pub key: char,
+    pub position: usize,
     pub distance: usize,
     pub collected_keys: HashSet<char>,
     pub keys_in_order: Vec<char>,
@@ -15,13 +17,13 @@ struct State {
 
 impl State {
     pub fn new(
-        key: char,
+        position: usize,
         distance: usize,
         collected_keys: HashSet<char>,
         keys_in_order: Vec<char>,
     ) -> State {
         State {
-            key,
+            position,
             distance,
             collected_keys,
             keys_in_order,
@@ -31,7 +33,7 @@ impl State {
 
 impl PartialEq for State {
     fn eq(&self, other: &Self) -> bool {
-        self.key == other.key && self.collected_keys == other.collected_keys
+        self.position == other.position && self.collected_keys == other.collected_keys
     }
 }
 
@@ -39,8 +41,13 @@ impl Eq for State {}
 
 impl Hash for State {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.key.hash(state);
-        let mut sorted_keys: Vec<_> = self.collected_keys.iter().collect();
+        // states are considered equal if robot is on same position & owns the same
+        // keys
+        self.position.hash(state);
+        // don't care for order of collecting keys
+        // to get same hash every time hash them
+        // in alphabetic order
+        let mut sorted_keys = self.keys_in_order.clone();
         sorted_keys.sort();
         for key in sorted_keys.iter() {
             key.hash(state);
@@ -255,41 +262,43 @@ impl Maze {
 
     pub fn collect_all_keys(&self) {
         let (distances, blocking_doors) = self.get_distances_and_blocking_doors();
-        println!("Distances: {:?}", distances);
-        println!("Distances from start: {:?}", distances.get(&'@').unwrap());
-        println!("Blocked paths: {:?}", blocking_doors);
 
         let mut queue: Vec<State> = Vec::new();
-        let initial_state = State::new('@', 0, HashSet::new(), Vec::new());
+        let initial_state = State::new(self.start_idx, 0, HashSet::new(), Vec::new());
         let mut known_states: HashSet<State> = HashSet::new();
         queue.push(initial_state);
 
         let num_all_keys = self.keys.len();
         let mut counter = 0;
         loop {
-            let node = queue.remove(0);
-            if known_states.get(&node).is_some() {
+            let state = queue.remove(0);
+
+            // check if state is already known
+            if known_states.get(&state).is_some() {
                 continue;
             }
-            if node.collected_keys.len() == num_all_keys {
-                println!("{:?}", node);
+            if state.collected_keys.len() == num_all_keys {
+                println!("Found a shortest path that collects all keys:");
+                println!("{:?}", state);
                 break;
             }
 
+            let state_key = self.point_of_interests.get(&state.position).unwrap();
+
             'node_neighbour_loop: for (other_key, distance) in
-                distances.get(&node.key).unwrap().iter()
+                distances.get(state_key).unwrap().iter()
             {
                 // check if key has already been collected
-                if node.collected_keys.get(other_key).is_some() {
+                if state.collected_keys.get(other_key).is_some() {
                     continue;
                 }
                 // first check if this key is even reachable
-                let blockage_opt = blocking_doors.get(&(node.key, *other_key));
+                let blockage_opt = blocking_doors.get(&(*state_key, *other_key));
                 if blockage_opt.is_some() {
                     let blocked = blockage_opt.unwrap();
                     for blocked_door in blocked.iter() {
                         // check if key for blocked_door was collected
-                        if node
+                        if state
                             .collected_keys
                             .get(&blocked_door.to_ascii_lowercase())
                             .is_none()
@@ -298,28 +307,33 @@ impl Maze {
                         }
                     }
                 }
-                let mut collected_keys = node.collected_keys.clone();
+                let mut collected_keys = state.collected_keys.clone();
                 collected_keys.insert(*other_key);
-                let mut keys_in_order = node.keys_in_order.clone();
+                let mut keys_in_order = state.keys_in_order.clone();
                 keys_in_order.push(*other_key);
-                let new_node = State::new(
-                    *other_key,
-                    node.distance + distance,
+                let new_state = State::new(
+                    *self.keys.get(other_key).unwrap(),
+                    state.distance + distance,
                     collected_keys,
                     keys_in_order,
                 );
 
-                queue.push(new_node)
+                queue.push(new_state)
             }
             queue.sort_by_key(|k| k.distance);
             counter += 1;
             if counter % 1000 == 0 {
-                println!("---");
-                for path in queue.iter().take(10) {
-                    println!("{:?}", path);
-                }
+                // println!("---");
+                println!(
+                    "Iteration: {}, Number of candidate states: {}",
+                    counter,
+                    queue.len()
+                );
+                // for path in queue.iter().take(10) {
+                //     println!("{:?}", path);
+                // }
             }
-            known_states.insert(node);
+            known_states.insert(state);
         }
     }
 }
@@ -327,9 +341,3 @@ impl Maze {
 fn grid_to_idx(x: usize, y: usize) -> usize {
     x + y * MAP_DIM_X
 }
-
-// fn idx_to_grid(idx: usize) -> (usize, usize) {
-//     let x = idx % MAP_DIM_X;
-//     let y = (idx - x) / MAP_DIM_X;
-//     (x, y)
-// }
