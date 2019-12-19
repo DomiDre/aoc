@@ -42,7 +42,7 @@ fn part1(intcodes: Vec<i64>) {
     println!("Points affected in scanned area: {}", tractor_beam_counter);
 }
 
-fn part2(mut intcodes: Vec<i64>) {
+fn part2(intcodes: Vec<i64>) {
     // looking at map -> tractor beam left and right edge only move rightward
     // move along right edge of tractor beam and always check if point x-100,y and point x-100,y+100
     // are in the beam, at first occurence -> ship fits
@@ -50,7 +50,7 @@ fn part2(mut intcodes: Vec<i64>) {
     let mut drone_system = DroneSystem::new(intcodes);
     let mut y = 40; // start a lower y as there are some edge case lines at beginning without
                     // any tractor beam point
-    // find right edge of tractor beam
+                    // find right edge of tractor beam
     let mut x_right = 0;
     // go right until x is in beam
     loop {
@@ -70,7 +70,6 @@ fn part2(mut intcodes: Vec<i64>) {
         }
         x_right += 1;
     }
-    
     // go down the beam, determine width of it
     loop {
         y += 1;
@@ -82,31 +81,28 @@ fn part2(mut intcodes: Vec<i64>) {
                 x_right -= 1;
                 break;
             }
-
         }
         // check if upper left point of ship is in tractor
         if x_right < 100 {
             // ignore out of bounds conditions
-            continue
+            continue;
         }
-        if let DroneState::Stationary = drone_system.deploy_drone(x_right-99, y) {
-            continue
+        if let DroneState::Stationary = drone_system.deploy_drone(x_right - 99, y) {
+            continue;
         }
         // and check if lower left point of ship in tractor
-        if let DroneState::Stationary = drone_system.deploy_drone(x_right-99, y+99) {
-            continue
+        if let DroneState::Stationary = drone_system.deploy_drone(x_right - 99, y + 99) {
+            continue;
         }
 
         // if this point is reached, ship fits
         break;
     }
     println!("{} {}", x_right, y);
-    println!("Answer: {}", (x_right - 99)*10000+y);
-    // 699134 too low
-    // 7081147 too high
+    println!("Answer: {}", (x_right - 99) * 10000 + y);
 }
 fn main() {
     let intcodes = read_input().unwrap();
-    // part1(intcodes.clone());
+    part1(intcodes.clone());
     part2(intcodes);
 }
